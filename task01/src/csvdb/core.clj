@@ -20,14 +20,14 @@
 ;;
 ;; Hint: flatten, map, list
 (defn key-value-pairs [tbl-keys tbl-record]
-  (flatten (map list tbl-keys tbl-record)))
+  (mapcat list tbl-keys tbl-record))
 
 ;; (data-record [:id :surname :year :group_id] ["1" "Ivanov" "1996"])
 ;; => {:surname "Ivanov", :year "1996", :id "1"}
 ;;
 ;; Hint: apply, hash-map, key-value-pairs
 (defn data-record [tbl-keys tbl-record]
-  (apply hash-map (key-value-pairs tbl-keys tbl-record)))
+  (zipmap tbl-keys tbl-record))
 
 ;; (data-table student-tbl)
 ;; => ({:surname "Ivanov", :year "1996", :id "1"}
@@ -43,7 +43,7 @@
 ;;
 ;; Hint: assoc, Integer/parseInt, get
 (defn str-field-to-int [field rec]
-  (assoc rec field (parse-int (field rec))))
+  (update-in rec [field] parse-int))
 
 (def student (->> (data-table student-tbl)
                   (map #(str-field-to-int :id %))
