@@ -39,16 +39,26 @@
 ;; nil
 
 (defn parse-vector
-  "Parses a vector of string with matching rules and combines results in result-list"
+  "Parses an input-vector of string with matching rules and combines results in result-list"
   ([input-vector result-list]
      (let [[result rest]
            (match input-vector
-                  ["select" table & rest] [table rest]
+                  ["select" table & rest]             [(list table) rest]
                   ["where" field compar value & rest] [(list :where #(compar field value)) rest]
+                  ["limit" value & rest]              [(list :limit (helpers/parse-int value)) rest]
+                  ["order" "by" key & rest]           [(list :order-by (keyword key)) rest]
+                  ["join" field "on" key_id "=" value & rest] [(list
+                                                                :joins
+                                                                [[(keyword key_id)
+                                                                  field
+                                                                  (keyword value)]])
+                                                               rest] 
                   :else [nil nil])]
        (if (nil? rest)
-         (flatten (reverse result-list))
-         (recur rest (conj result-list result))))))
+         (if (empty? result-list)
+           nil
+           result-list)
+         (recur rest (concat result-list result))))))
 
 (defn parse-select [^String sel-string]
   (let [vec-str (string/split sel-string #"\s")]
