@@ -37,21 +37,22 @@
 ;; ("student" :where #<function> :order-by :id :limit 2 :joins [[:id "subject" :sid]])
 ;; > (parse-select "werfwefw")
 ;; nil
-(defn match-vec [vec]
-  (let [matching-out
-        (match vec
-               ["select" table & rest] {:res table :rest rest}
-               ["where"  field compare value & rest] {:res (conj '(:where) (fn [] (operator field value))
-                                                            ) :rest rest}
-               
-               :else nil)]
-    (if (= nil matching-out)
-      nil
-      (flatten (conj '() (:res matching-out) (match-vec (:rest matching-out)))))))
+
+(defn parse-vector
+  "Parses a vector of string with matching rules and combines results in result-list"
+  ([input-vector result-list]
+     (let [[result rest]
+           (match input-vector
+                  ["select" table & rest] [table rest]
+                  ["where" field compar value & rest] [(list :where #(compar field value)) rest]
+                  :else [nil nil])]
+       (if (nil? rest)
+         (flatten (reverse result-list))
+         (recur rest (conj result-list result))))))
 
 (defn parse-select [^String sel-string]
   (let [vec-str (string/split sel-string #"\s")]
-    (reverse (match-vec vec-str))))
+    (parse-vector vec-str '())))
 
 (defn make-where-function [& args] :implement-me)
 
