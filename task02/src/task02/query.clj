@@ -38,21 +38,31 @@
 ;; > (parse-select "werfwefw")
 ;; nil
 
+(defn make-where-function
+  "Generates function for :where key in query-parsed map"
+  [column comp-op value]
+  (let [operator   (resolve (symbol comp-op))
+        norm-value (if (nil? (re-find #"^\'\S+\'$" value))
+                     (helpers/parse-int value)
+                     (re-find #"[^']+" value))
+        key-column (keyword column)]
+    #(operator norm-value (key-column %)))
+  )  
+
 (defn parse-vector
   "Parses an input-vector of string with matching rules and combines results in result-list"
   ([input-vector result-list]
      (let [[result rest]
            (match input-vector
-                  ["select" table & rest]             [(list table) rest]
-                  ["where" field compar value & rest] [(list :where #(compar field value)) rest]
-                  ["limit" value & rest]              [(list :limit (helpers/parse-int value)) rest]
-                  ["order" "by" key & rest]           [(list :order-by (keyword key)) rest]
-                  ["join" field "on" key_id "=" value & rest] [(list
-                                                                :joins
-                                                                [[(keyword key_id)
-                                                                  field
-                                                                  (keyword value)]])
-                                                               rest] 
+                  ["select" table-name & rest]          [(list table-name) rest]
+                  ["where" column comp-op value & rest] [(list :where #((resolve (symbol comp-op))
+                                                                        (helpers/parse-int value)
+                                                                        ((keyword column) %)))
+                                                         rest]
+                  ["limit" value & rest]                [(list :limit (helpers/parse-int value)) rest]
+                  ["order" "by" column & rest]          [(list :order-by (keyword column)) rest]
+                  ["join" other-table "on" left-column "=" right-column & rest]
+                      [(list :joins [[(keyword left-column) other-table (keyword right-column)]]) rest] 
                   :else [nil nil])]
        (if (nil? rest)
          (if (empty? result-list)
@@ -64,7 +74,6 @@
   (let [vec-str (string/split sel-string #"\s")]
     (parse-vector vec-str '())))
 
-(defn make-where-function [& args] :implement-me)
 
 ;; Выполняет запрос переданный в строке.  Бросает исключение если не удалось распарсить запрос
 
