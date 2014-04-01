@@ -113,8 +113,11 @@
 ;;   (update student {:id 5})
 ;;   (update student {:id 6} :where #(= (:year %) 1996))
 (defn update [data upd-map & {:keys [where]}]
-  :implement-me
-  )
+  (dosync (ref-set data (let [update-list (if (nil? where)
+                                            @data
+                                            (select data :where where))
+                              upd-fn (fn [map] (merge map upd-map))]
+                          (map upd-fn @data)))))
 
 
 ;; Вставляет новую строку в указанную таблицу
