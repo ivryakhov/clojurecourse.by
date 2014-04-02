@@ -2,7 +2,8 @@
   (:require [task02.helpers :as helpers]
             [task02.db :as db]
             [clojure.core.match :refer [match]]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            ))
 
 ;; Функция выполняющая парсинг запроса переданного пользователем
 ;;
@@ -54,16 +55,24 @@
   ([input-vector result-list]
      (let [[result rest]
            (match input-vector
-                  ["select" table-name & rest]          [(list table-name) rest]
-                  ["where" column comp-op value & rest] [(list :where #((resolve (symbol comp-op))
-                                                                        (helpers/parse-int value)
-                                                                        ((keyword column) %)))
-                                                         rest]
-                  ["limit" value & rest]                [(list :limit (helpers/parse-int value)) rest]
-                  ["order" "by" column & rest]          [(list :order-by (keyword column)) rest]
-                  ["join" other-table "on" left-column "=" right-column & rest]
-                      [(list :joins [[(keyword left-column) other-table (keyword right-column)]]) rest] 
-                  :else [nil nil])]
+                  [(:or "select" "SELECT") table-name & rest]
+                  [(list table-name) rest]
+                  
+                  [(:or "where" "WHERE") column comp-op value & rest]
+                  [(list :where (make-where-function column comp-op value)) rest]
+                  
+                  [(:or "limit" "LIMIT") value & rest]
+                  [(list :limit (helpers/parse-int value)) rest]
+                  
+                  [(:or "order" "ORDER") (:or "by" "BY") column & rest]
+                  [(list :order-by (keyword column)) rest]
+                  
+                  [(:or "join" "JOIN") other-table (:or "on" "ON") left-column "=" right-column & rest]
+                  [(list :joins [[(keyword left-column) other-table (keyword right-column)]]) rest]
+                  
+                  :else
+                  [nil nil])]
+       
        (if (nil? rest)
          (if (empty? result-list)
            nil

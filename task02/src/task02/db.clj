@@ -99,9 +99,9 @@
 ;;   (delete student) -> []
 ;;   (delete student :where #(= (:id %) 1)) -> все кроме первой записи
 (defn delete [data & {:keys [where]}]
-  (dosync (ref-set data (if (nil? where)
-                          []
-                          (select data :where #(not (where %)))))))
+  (dosync (ref-set data (if where
+                          (select data :where #(not (where %)))
+                          []))))
 
 ;; Данная функция должна обновить данные в строках соответствующих указанному предикату
 ;; (или во всей таблице).
@@ -116,8 +116,8 @@
   (dosync (ref-set data (let [update-list (if (nil? where)
                                             @data
                                             (select data :where where))
-                              upd-fn (fn [map] (merge map upd-map))]
-                          (map upd-fn @data)))))
+                              upd-fn (fn [cur-map] (merge cur-map upd-map))]
+                          (map upd-fn update-list)))))
 
 
 ;; Вставляет новую строку в указанную таблицу
