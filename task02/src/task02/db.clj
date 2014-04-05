@@ -99,8 +99,8 @@
 ;;   (delete student) -> []
 ;;   (delete student :where #(= (:id %) 1)) -> все кроме первой записи
 (defn delete [data & {:keys [where]}]
-  (dosync (ref-set data (if where
-                          (select data :where #(not (where %)))
+  (dosync (alter data #(if where
+                         (where* % (fn [x] (not (where x))))
                           []))))
 
 ;; Данная функция должна обновить данные в строках соответствующих указанному предикату
@@ -113,11 +113,11 @@
 ;;   (update student {:id 5})
 ;;   (update student {:id 6} :where #(= (:year %) 1996))
 (defn update [data upd-map & {:keys [where]}]
-  (dosync (ref-set data (let [update-list (if (nil? where)
-                                            @data
-                                            (select data :where where))
-                              upd-fn (fn [cur-map] (merge cur-map upd-map))]
-                          (map upd-fn update-list)))))
+  (dosync (alter data #(map (fn [cur-map]
+                              (if-not (or (not where) (where cur-map))
+                                cur-map
+                                (merge cur-map upd-map)))
+                            %))))
 
 
 ;; Вставляет новую строку в указанную таблицу

@@ -39,15 +39,23 @@
 ;; > (parse-select "werfwefw")
 ;; nil
 
+(def sign->fn
+  {">" >
+   "<" <
+   ">=" >=
+   "<=" <=
+   "=" =
+   "!=" not=})
+
 (defn make-where-function
   "Generates function for :where key in query-parsed map"
   [column comp-op value]
-  (let [operator   (resolve (symbol comp-op))
+  (let [func       (sign->fn comp-op)
         norm-value (if (nil? (re-find #"^\'\S+\'$" value))
                      (helpers/parse-int value)
                      (re-find #"[^']+" value))
         key-column (keyword column)]
-    #(operator norm-value (key-column %)))
+    #(func (key-column %) norm-value))
   )  
 
 (defn parse-vector
@@ -56,19 +64,19 @@
      (let [[result rest]
            (match input-vector
                   [(:or "select" "SELECT") table-name & rest]
-                  [(list table-name) rest]
+                  [[table-name] rest]
                   
                   [(:or "where" "WHERE") column comp-op value & rest]
-                  [(list :where (make-where-function column comp-op value)) rest]
+                  [[:where (make-where-function column comp-op value)] rest]
                   
                   [(:or "limit" "LIMIT") value & rest]
-                  [(list :limit (helpers/parse-int value)) rest]
+                  [[:limit (helpers/parse-int value)] rest]
                   
                   [(:or "order" "ORDER") (:or "by" "BY") column & rest]
-                  [(list :order-by (keyword column)) rest]
+                  [[:order-by (keyword column)] rest]
                   
                   [(:or "join" "JOIN") other-table (:or "on" "ON") left-column "=" right-column & rest]
-                  [(list :joins [[(keyword left-column) other-table (keyword right-column)]]) rest]
+                  [[:joins [[(keyword left-column) other-table (keyword right-column)]]] rest]
                   
                   :else
                   [nil nil])]
@@ -81,7 +89,7 @@
 
 (defn parse-select [^String sel-string]
   (let [vec-str (string/split sel-string #"\s")]
-    (parse-vector vec-str '())))
+    (parse-vector vec-str [])))
 
 
 ;; Выполняет запрос переданный в строке.  Бросает исключение если не удалось распарсить запрос
