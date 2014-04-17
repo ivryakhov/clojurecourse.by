@@ -1,14 +1,16 @@
 (ns dsl.core
-  (:use clojure.walk))
+  (:use clojure.walk)
+  (:require [clj-time.core :as t]
+            [clojure.core.match :refer [match]]
+            [clojure.walk :as w]))
 
-(def cal (java.util.Calendar/getInstance))
-(def today (java.util.Date.))
-(def yesterday (do (.add cal java.util.Calendar/DATE -1) (.getTime cal)))
-(def tomorrow (do (.add cal java.util.Calendar/DATE 2) (.getTime cal)))
+(def today (t/now))
+(def yesterday (t/minus today (t/days 1)))
+(def tomorrow (t/plus today (t/days 1)))
 
 (comment
   (defn one [] 1)
-  
+
   ;; Примеры вызова
   (with-datetime
     (if (> today tomorrow) (println "Time goes wrong"))
@@ -24,9 +26,62 @@
         (println "DSL works correctly")))))
 
 
-;; Режим Бога -- никаких подсказок.
-;; Вы его сами выбрали ;-)
+(defn d-op [op d1 d2]
+  (if (and (instance? org.joda.time.DateTime d1)
+           (instance? org.joda.time.DateTime d2))
+    (cond 
+     (= op >) (t/after? d1 d2)
+     (= op <) (t/before? d1 d2)
+     (= op >=) (or (t/after? d1 d2)
+                   (= d1 d2))
+     (= op <=) (or (t/before? d1 d2)
+                   (= d1 d2))
+     :else (op d1 d2))
+    (op d1 d2)))
+
+
+(defmacro date-operate [date op num period]
+  (let [t-op (match op
+                    '+ t/plus
+                    '- t/minus)
+        t-period (match period
+                        (:or 'second 'seconds) t/seconds
+                        (:or 'minute 'minutes) t/minutes
+                        (:or 'hour 'hours) t/hours
+                        (:or 'day 'days) t/days
+                        (:or 'week 'weeks) t/weeks
+                        (:or 'month 'months) t/months
+                                                (:or 'year 'years) t/years)]
+    `(~t-op ~date (~t-period ~num))))
+
+;; Можете использовать эту функцию для того, чтобы определить,
+;; является ли список из 4-х элементов тем самым списком, который
+;; создает новую дату,
+;; и который нужно обработать функцией d-add.
+(defn is-date-operate? [nlist]
+  (let [op (second nlist)
+        period (last nlist)]
+    (and (= (count nlist) 4)
+         (or (= '+ op)
+             (= '- op))
+         (contains? #{'day 'days 'week 'weeks 'month 'months 'year 'years
+                      'hour 'hours 'minute 'minutes 'second 'seconds} period))))
+
+(defn is-dates-compare? [nlist]
+  (if (= (count nlist) 3)
+    (let [op (str (first nlist))]
+      (contains? #{">" "<" ">=" "<="} op))))
+
+
+(defn if-replace [code]
+  (if (list? code)
+    (cond
+     (is-dates-compare? code) (conj code d-op)
+     (is-date-operate? code) `(date-operate ~@code)
+     :else code)
+    code))
+
 (defmacro with-datetime [& code]
-  :ImplementMe!)
+  `~(conj (w/postwalk #(if-replace %) code) 'do))
 
 
