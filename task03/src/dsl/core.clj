@@ -1,7 +1,6 @@
 (ns dsl.core
   (:use clojure.walk)
   (:require [clj-time.core :as t]
-            [clojure.core.match :refer [match]]
             [clojure.walk :as w]))
 
 (def today (t/now))
@@ -41,17 +40,17 @@
 
 
 (defmacro date-operate [date op num period]
-  (let [t-op (match op
-                    '+ t/plus
-                    '- t/minus)
-        t-period (match period
-                        (:or 'second 'seconds) t/seconds
-                        (:or 'minute 'minutes) t/minutes
-                        (:or 'hour 'hours) t/hours
-                        (:or 'day 'days) t/days
-                        (:or 'week 'weeks) t/weeks
-                        (:or 'month 'months) t/months
-                                                (:or 'year 'years) t/years)]
+  (let [t-op (case op
+               + t/plus
+               - t/minus)
+        t-period (case period
+                        (second seconds) t/seconds
+                        (minute minutes) t/minutes
+                        (hour hours) t/hours
+                        (day days) t/days
+                        (week weeks) t/weeks
+                        (month months) t/months
+                        (year years) t/years)]
     `(~t-op ~date (~t-period ~num))))
 
 ;; Можете использовать эту функцию для того, чтобы определить,
